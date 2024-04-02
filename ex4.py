@@ -1,9 +1,15 @@
 import cv2
+import numpy as np
 img = cv2.imread('image.jpg')
 
 greyimg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY )
 rbgimg = cv2.cvtColor(img, cv2.COLOR_BGR2RGB )
 hslimg = cv2.cvtColor(img, cv2.COLOR_BGR2HLS )
+
+equ = cv2.equalizeHist(greyimg)
+cv2.imshow(" ",equ)
+cv2.waitKey(0)
+
 cv2.imshow(" ",greyimg)
 cv2.waitKey(0)
 
