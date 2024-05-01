@@ -1,77 +1,55 @@
 import cv2
-from tracker import Tracker
-# Open the video file.
-cap = cv2.VideoCapture('12.mp4')
+from detector import detect
+from kalman import KalmanFilter
 
-# Create the KNN background subtractor.
-bg_subtractor = cv2.createBackgroundSubtractorKNN()
-
-# Set the history length for the background subtractor.
-history_length = 20
-bg_subtractor.setHistory(history_length)
-
-# Create kernel for erode and dilate operations.
-erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 7))
-
-# Create an empty list to store the tracked senators.
-senators = []
-
-# Counter to keep track of the number of history frames populated.
-num_history_frames_populated = 0
-
-# Start processing each frame of the video.
-while True:
-    # Read the current frame from the video.
-    grabbed, frame = cap.read()
-
-    # If there are no more frames to read, break out of the loop.
-    if not grabbed:
-        break
-
-    # Apply the KNN background subtractor to get the foreground mask.
-    fg_mask = bg_subtractor.apply(frame)
-
-    if num_history_frames_populated < history_length:
-        num_history_frames_populated += 1
-        continue
+def main():
 
 
-    _, thresh = cv2.threshold(fg_mask, 127, 255, cv2.THRESH_BINARY)
+    VideoCap = cv2.VideoCapture('randomball.avi')
 
+    ControlSpeedVar = 100  
 
-    cv2.erode(thresh, erode_kernel, thresh, iterations=2)
-    cv2.dilate(thresh, dilate_kernel, thresh, iterations=2)
+    HiSpeed = 100
 
+    KF = KalmanFilter(0.1, 1, 1, 1, 0.1,0.1)
 
-    contours, hier = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    debugMode=1
 
-   
-    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    while(True):
+        
+        ret, frame = VideoCap.read()
 
-    should_initialize_senators = len(senators) == 0
-    id = 0
-    for c in contours:
-        if cv2.contourArea(c) > 500:
-          
-            (x, y, w, h) = cv2.boundingRect(c)
-            
+        centers = detect(frame,debugMode)
+
+        if (len(centers) > 0):
+
+            cv2.circle(frame, (int(centers[0][0]), int(centers[0][1])), 10, (0, 191, 255), 2)
+
          
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)
+            (x, y) = KF.predict()
             
-            if should_initialize_senators:
-                senators.append(Tracker(id, hsv_frame, (x, y, w, h)))
-                
-        id += 1
+            cv2.rectangle(frame, (int(x - 15), int(y - 15)), (int(x + 15), int(y + 15)), (255, 0, 0), 2)
 
-    for senator in senators:
-        senator.update(frame, hsv_frame)
-
-    cv2.imshow('Senators Tracked', frame)
-
-    k = cv2.waitKey(110)
+      
+            (x1, y1) = KF.update(centers[0])
 
 
-    if k == 27:
-        break
+            cv2.rectangle(frame, (int(x1 - 15), int(y1 - 15)), (int(x1 + 15), int(y1 + 15)), (0, 0, 255), 2)
 
+            cv2.putText(frame, "Estimated Position", (int(x1 + 15), int(y1 + 10)), 0, 0.5, (0, 0, 255), 2)
+            cv2.putText(frame, "Predicted Position", (int(x + 15), int(y)), 0, 0.5, (255, 0, 0), 2)
+            cv2.putText(frame, "Measured Position", (int(centers[0][0] + 15), int(centers[0][1] - 15)), 0, 0.5, (0,191,255), 2)
+
+        cv2.imshow('image', frame)
+
+        if cv2.waitKey(2) & 0xFF == ord('q'):
+            VideoCap.release()
+            cv2.destroyAllWindows()
+            break
+
+        cv2.waitKey(HiSpeed-ControlSpeedVar+1)
+
+
+if __name__ == "__main__":
+    # execute main
+    main()
